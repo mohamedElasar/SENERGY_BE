@@ -2,22 +2,24 @@ const express = require('express');
 const expressAsyncHandler = require('express-async-handler');
 const bcrypt = require('bcryptjs');
 const data = require('../data.js');
-const Device = require('../models/device_token');
+
 const { generateToken, isAuth } = require('../utils.js');
 var FCM = require('fcm-node');
 const dotenv = require('dotenv');
 dotenv.config();
-
+const db = require("../models");
+const Device = db.devices;
+const Op = db.Sequelize.Op;
 
 const notificationRouter = express.Router();
 const server_key = process.env.FIREBASE_SERVER_KEY;
 var fcm = new FCM(server_key);
 
-
+// find admin tokens 
 notificationRouter.get(
     '/token/admin',
     expressAsyncHandler(async (req, res) => {
-        const device = await Device.find({ isAdmin: true });
+        const device = await Device.findALL({ Where: { isAdmin: true } });
         if (device) {
             res.send(device);
         } else {
@@ -25,13 +27,19 @@ notificationRouter.get(
         }
     })
 );
-
+// register device token 
 notificationRouter.post(
     '/token/admin',
     expressAsyncHandler(async (req, res) => {
-        const mydevice = await Device.findOne({ token: req.body.token });
+        const mydevice = await Device.findOne({ where: { token: req.body.token } });
         if (mydevice) {
-            const newdevice = await Device.findOneAndUpdate({ token: req.body.token },{isAdmin:req.body.isAdmin})
+            // console.log(mydevice);
+
+            const newdevice = await Device.update({ token: req.body.token, isAdmin: req.body.isAdmin,user_id:req.body._id }, {
+                where: {
+                    token: mydevice.token
+                }
+            })
             const creatednewdevice = await newdevice.save();
             res.send(creatednewdevice);
 
@@ -40,6 +48,7 @@ notificationRouter.post(
             const device = new Device({
                 isAdmin: req.body.isAdmin,
                 token: req.body.token,
+                user_id:req.body._id,
             });
             const createdDevice = await device.save();
 
@@ -55,12 +64,12 @@ notificationRouter.post(
     }
     )
 );
-
+// send notification 
 notificationRouter.post(
     '/token/admin/send',
     expressAsyncHandler(async (req, res) => {
 
-        const admin_devices = await Device.find({ isAdmin: true });
+        const admin_devices = await Device.findAll({ where: { isAdmin: true } });
         console.log('admin_devices')
 
         if (admin_devices) {
@@ -79,7 +88,7 @@ notificationRouter.post(
 
             };
             try {
-                
+
 
                 fcm.send(message, function (err, response) {
                     if (err) {

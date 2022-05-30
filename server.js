@@ -1,6 +1,6 @@
 
 const express = require('express');
-const mongoose = require('mongoose');
+
 const dotenv = require('dotenv');
 const userRouter =require('./routers/userRouter.js') ;
 const tripRouter =require('./routers/tripRouter.js') ;
@@ -16,11 +16,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-mongoose.connect(process.env.MONGODB_URL, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+const db = require("./models");
+db.sequelize.sync({ force: false });
 
-});
 app.use('/api/users', userRouter);
 app.use('/api/trips', tripRouter);
 app.use('/api/notifications', notificationRouter);
